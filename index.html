@@ -345,7 +345,7 @@ function kpDone(){const m=kp.mode,p=PF.list.find(x=>x.id===kp.id),b=kp.buf;if(!p
  else if(m==='set2'){if(b===kp.first){p.pin=mkpin(b);savePF();A.close();ok('PIN set')}else{kp={mode:'set1',id:p.id,buf:'',msg:'PINs did not match. Try again.'};kpRender()}}
  else if(m==='aset2'){if(b===kp.first){p.pin=mkpin(b);savePF();adminPanel('PIN updated for '+p.name)}else{kp={mode:'aset1',id:p.id,buf:'',msg:'PINs did not match. Try again.'};kpRender()}}
  else if(m==='cset2'){if(b===kp.first){const id=uid(),key='spendy.p.'+id,d=blank();d.open.avail=nu.bal;d.salary=nu.sal;try{localStorage.setItem(key,JSON.stringify(d))}catch(e){}PF.list.push({id,name:nu.name,key,pin:mkpin(b)});savePF();const n=nu.name;nu=null;enter(id);ok('Welcome, '+n)}else{kp={mode:'cset1',buf:'',msg:'PINs did not match. Try again.'};kpRender()}}}
-const SB_URL='',SB_KEY='';
+const SB_URL = 'https://dqqclrnfzrquybryhncw.supabase.co', SB_KEY = 'sb_publishable_p2cZTgmY_ghjcEAYrj4Dog_O9AdEn1N';
 const CFG=()=>{if(SB_URL&&SB_KEY)return{u:SB_URL,k:SB_KEY};try{const c=JSON.parse(localStorage.getItem('spendy.cfg'));return c&&c.u&&c.k?c:null}catch(e){return null}};
 const cErr=x=>x instanceof TypeError?'Could not reach the cloud. Check your internet connection.':(x&&x.message)||'Something went wrong.';
 async function sbAuth(path,body){const c=CFG(),r=await fetch(c.u.replace(/\/$/,'')+'/auth/v1/'+path,{method:'POST',headers:{apikey:c.k,'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.msg||j.error_description||j.message||'Request failed');return j}
