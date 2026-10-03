@@ -219,12 +219,12 @@ function lim(c){const L=Math.max(0,c.raw+c.tsp)/c.days,r=L>0?c.tsp/L:(c.tsp>0?2:
  <div class="lf"><span class="st">${state}</span><span class="lp">${f(L)}/day</span></div></div>`}
 function home(){const c=C(),d=new Date();
  const cmpS=c.psp>0?`<small class="${c.sp<=c.psp?'pos':'neg'}">${c.sp<=c.psp?'▼':'▲'} ${Math.abs(Math.round((c.sp-c.psp)/c.psp*100))}% vs last mo.</small>`:'';
- const qa=[['add:expense','minus','Expense'],['add:income','cash','Salary'],['add:saving','coin','Save'],['tab:tog','heart','Together'],['tab:plan','bill','Bills'],['tab:cmp','chart','Compare'],['tab:act','card','Activity'],['backup','down','Backup']];
+ const qa=[['add:expense','minus','Expense'],['add:income','cash','Income'],['add:saving','coin','Save'],['tab:tog','heart','Together'],['tab:plan','bill','Bills'],['tab:cmp','chart','Compare'],['tab:act','card','Activity'],['backup','down','Backup']];
  const deal=b=>{const dd=b.day-d.getDate();const st=dd<0?"Overdue":dd===0?"Due today":dd+" days left",cl=dd<=0?" due":dd<=3?" soon":"";return `<div class="deal${cl}"><div class="dh"><div><b>${esc(b.name)}</b><small>Monthly bill</small></div><button class="rb" data-a="pay:${b.id}" aria-label="Mark ${esc(b.name)} as paid">${ic('check')}</button></div><div class="dg"><div><small>Amount</small><b>${f(b.amt)}</b></div><div><small>Due</small><b>Day ${b.day}</b></div><div><small>Status</small><b class="st">${st}</b></div></div></div>`};
  return `<div class="gh"><div class="g1"><button class="gtb" data-a="prof" aria-label="Switch user"><div class="hx">${esc(curP().name.trim()[0]||'S').toUpperCase()}</div><div class="gt"><small>${greet().replace('!','')}</small><b>${esc(curP().name)} ▾</b></div></button><button class="gc" data-a="tip" aria-label="Piggy tip">🐷</button></div>
  <div class="gr"><div><small>Safe to spend</small><div class="gb">${f(c.safe)}</div></div><span class="gp">${f(c.daily)}/day</span></div>
  <div class="gm">Available <b>${f(c.avail)}</b> · Upcoming bills <b>${f(c.up)}</b></div>
- <div class="gbtn"><button class="gl2" data-a="add:expense">+ Add expense</button><button class="gd" data-a="add:income">Salary</button><button class="gc" data-a="tab:plan" aria-label="Plan">⋮</button></div></div>
+ <div class="gbtn"><button class="gl2" data-a="add:expense">+ Add expense</button><button class="gd" data-a="add:income">Income</button><button class="gc" data-a="tab:plan" aria-label="Plan">⋮</button></div></div>
  <div class="cq"><b style="font-size:17px">Quick actions</b><div class="qg">${qa.map(q=>`<button data-a="${q[0]}"><i>${ic(q[1])}</i>${q[2]}</button>`).join('')}</div></div>
  ${lim(c)}<div class="g3"><div class="card ci"><small>Income</small><b>${f(c.inc)}</b></div><div class="card cs"><small>Spent</small><b>${f(c.sp)}</b>${cmpS}</div><div class="card cv"><small>Saved</small><b>${f(c.sv)}</b></div></div>
  <div class="hd"><b style="font-size:18px">Upcoming bills</b><button class="btn o" data-a="tab:plan">See all</button></div>
@@ -232,7 +232,7 @@ function home(){const c=C(),d=new Date();
  <div class="card gold"><div class="hd" style="margin:0"><b>🪙 Savings habit</b><span class="mut" style="margin:0">Savings ${f(c.sav)}</span></div><p class="mut" style="margin:6px 0 0">Saved this week: ${f(c.wk)}</p>
  <div class="sv"><button class="btn" data-a="quick:20">Save ₹20</button><button class="btn" data-a="quick:50">Save ₹50</button><button class="btn" data-a="quick:100">Save ₹100</button></div></div>`}
 function act(){const l=[...S.txs].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
- return `<h1>Activity</h1><p class="mut">Tap an entry to edit it.</p><div class="card">${l.length?l.map(t=>{const inc=t.type==='income'||(t.type==='adj'&&t.amt>0);const nm=t.type==='income'?'Salary':t.type==='saving'?'Savings':t.type==='adj'?'Balance check':t.cat;const em=t.type==='income'?'💰':t.type==='saving'?'🏦':t.type==='adj'?'⚖️':catE(t.cat);
+ return `<h1>Activity</h1><p class="mut">Tap an entry to edit it.</p><div class="card">${l.length?l.map(t=>{const inc=t.type==='income'||(t.type==='adj'&&t.amt>0);const nm=t.type==='income'?(t.cat||'Salary'):t.type==='saving'?'Savings':t.type==='adj'?'Balance check':t.cat;const em=t.type==='income'?(INE[t.cat||'Salary']||'💰'):t.type==='saving'?'🏦':t.type==='adj'?'⚖️':catE(t.cat);
  return `<button class="row" data-a="edit:${t.id}"><div class="em">${em}</div><div class="t"><b>${esc(t.note||nm)}</b><small>${nm} · ${dfmt(t.date)}</small></div><div class="a ${inc?'pos':t.type==='saving'?'':'neg'}">${inc?'+':'−'}${f(Math.abs(t.amt))}</div></button>`}).join(''):'<div class="empty">No entries yet. Tap + to add your first expense.</div>'}</div>`}
 function plan(){const c=C(),exp=c.inc>0?0:S.salary,after=c.avail-c.up+exp;
  const cats=Object.entries(c.cat).sort((a,b)=>b[1]-a[1]),mx=cats[0]?cats[0][1]:1;
@@ -252,17 +252,18 @@ function tog(){const c=C();const N={held:'Held for her',gave:'Given back',owes:'
  <div class="hd"><b>History</b><button class="btn" data-a="ptx:">Add entry</button></div>
  <div class="card tint">${S.partner.length?[...S.partner].reverse().map(p=>`<button class="row" data-a="ptx:${p.id}"><div class="em">💞</div><div class="t"><b>${esc(p.note||N[p.k])}</b><small>${N[p.k]} · ${dfmt(p.date)}</small></div><div class="a">${f(p.amt)}</div></button>`).join(''):'<div class="empty">No entries yet.</div>'}</div></div>`}
 let cm=null;
-const E=()=>({sp:0,inc:0,sv:0,cat:{},day:{},n:0,sm:0,smT:0,we:0,big:null});
+const E=()=>({ic:{},sp:0,inc:0,sv:0,cat:{},day:{},n:0,sm:0,smT:0,we:0,big:null});
 function CM(){if(cm)return cm;const mo={};
  for(const t of S.txs){const k=t.date.slice(0,7),m=mo[k]||(mo[k]=E()),d=+t.date.slice(8,10);
-  if(t.type==='income')m.inc+=t.amt;else if(t.type==='saving')m.sv+=t.amt;
+  if(t.type==='income'){m.inc+=t.amt;const k2=t.cat||'Salary';m.ic[k2]=(m.ic[k2]||0)+t.amt}else if(t.type==='saving')m.sv+=t.amt;
   else if(t.type==='expense'){m.sp+=t.amt;m.cat[t.cat]=(m.cat[t.cat]||0)+t.amt;m.day[d]=(m.day[d]||0)+t.amt;m.n++;if(t.amt<100){m.sm++;m.smT+=t.amt}const w=new Date(t.date+'T00:00').getDay();if(w===0||w===6)m.we+=t.amt;if(!m.big||t.amt>m.big.amt)m.big=t}}
  return cm=mo}
 const kf=n=>n>=1000?(n/1000).toFixed(1).replace('.0','')+'k':String(Math.round(n));
 const pct=(a,b)=>b>0?Math.round((a-b)/b*100):null;
 function dl(a,b,low){const p=pct(a,b);if(p===null)return '<small class="mut">no data last month</small>';if(!p)return '<small class="mut">same</small>';return `<small class="${(low?p<0:p>0)?'pos':'neg'}">${p>0?'▲':'▼'} ${Math.abs(p)}%</small>`}
+function incs(m){const e=Object.entries(m.ic||{}).sort((a,b)=>b[1]-a[1]);if(!e.length)return '';const mx=e[0][1];return `<div class="card"><b>Income by source</b>${e.map(x=>`<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${INE[x[0]]||'💰'} ${esc(x[0])}</span><b class="pos">${f(x[1])}</b></div><div class="bar"><i style="width:${x[1]/mx*100}%;background:#10b981"></i></div></div>`).join('')}</div>`}
 function cmp(){const mo=CM(),c=mk(),p=prevMk(),cu=mo[c]||E(),pv=mo[p]||E();
- if(!Object.values(mo).some(m=>m.sp>0))return `<h1>Compare</h1><p class="mut">See how this month stacks up.</p><div class="card"><div class="empty">Add a few expenses and your charts will appear here.</div></div>`;
+ if(!Object.values(mo).some(m=>m.sp>0||m.inc>0))return `<h1>Compare</h1><p class="mut">See how this month stacks up.</p><div class="card"><div class="empty">Add a few expenses and your charts will appear here.</div></div>`;
  const keys=[];for(let i=5;i>=0;i--){const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-i);keys.push([d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),d.toLocaleDateString('en-IN',{month:'short'})])}
  const mx=Math.max(1,...keys.map(k=>(mo[k[0]]||E()).sp));
  const bars=keys.map(k=>{const v=(mo[k[0]]||E()).sp;return `<div class="${k[0]===c?'cur':''}"><small>${v?kf(v):''}</small><i style="height:${Math.max(4,v/mx*90)}px"></i>${k[1]}</div>`}).join('');
@@ -288,7 +289,7 @@ function cmp(){const mo=CM(),c=mk(),p=prevMk(),cu=mo[c]||E(),pv=mo[p]||E();
  <svg viewBox="0 0 300 120" width="100%" role="img" aria-label="Cumulative spending this month compared with last month"><line x1="10" y1="110" x2="290" y2="110" stroke="#e6eaf3"/>${hasP?`<polyline points="${pts(B1)}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 4"/>`:''}<polyline points="${pts(A1)}" fill="none" stroke="#0d6b4a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
  <div class="mut" style="margin:6px 0 0"><span style="color:var(--blue)">━</span> This month &nbsp; <span>┅</span> Last month</div></div>
  <div class="g3"><div class="card ci"><small>Income</small><b>${f(cu.inc)}</b>${dl(cu.inc,pv.inc,0)}</div><div class="card cs"><small>Spent</small><b>${f(cu.sp)}</b>${dl(cu.sp,pv.sp,1)}</div><div class="card cv"><small>Saved</small><b>${f(cu.sv)}</b>${dl(cu.sv,pv.sv,0)}</div></div>
- <div class="card"><b>By category</b><p class="mut" style="margin:2px 0 0"><span style="color:var(--blue)">■</span> This month &nbsp; <span style="color:#94a3b8">■</span> Last month</p>${cats.map(k=>{const a=cu.cat[k]||0,b=pv.cat[k]||0;return `<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${catE(k)} ${esc(k)}</span><span><b>${f(a)}</b> ${dl(a,b,1)}</span></div><div class="bar"><i style="width:${a/cx*100}%"></i></div><div class="bar"><i style="width:${b/cx*100}%;background:#94a3b8"></i></div></div>`}).join('')}</div>
+ ${incs(cu)}<div class="card"><b>By category</b><p class="mut" style="margin:2px 0 0"><span style="color:var(--blue)">■</span> This month &nbsp; <span style="color:#94a3b8">■</span> Last month</p>${cats.map(k=>{const a=cu.cat[k]||0,b=pv.cat[k]||0;return `<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${catE(k)} ${esc(k)}</span><span><b>${f(a)}</b> ${dl(a,b,1)}</span></div><div class="bar"><i style="width:${a/cx*100}%"></i></div><div class="bar"><i style="width:${b/cx*100}%;background:#94a3b8"></i></div></div>`}).join('')}</div>
  <div class="card"><b>What you can do better</b>${tips.map(t=>`<div class="row"><div class="em">💡</div><div class="t" style="white-space:normal;font-size:14px">${t}</div></div>`).join('')||'<div class="empty">Nothing to flag. Nice.</div>'}</div>`}
 function sav(){const c=C(),pv=(CM()[prevMk()]||E()).sv;
  const l=S.txs.filter(t=>t.type==='saving').sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
@@ -347,26 +348,30 @@ function kpDone(){const m=kp.mode,p=PF.list.find(x=>x.id===kp.id),b=kp.buf;if(!p
 function render(){chg=lt!==tab;lt=tab;nav();let h={home,act,sav,cmp,plan,tog}[tab]();if(tab!=='home')h=h.replace(/<h1>(.*?)<\/h1><p class="mut">(.*?)<\/p>/,'<div class="gh sm"><h1>$1</h1><p>$2</p></div>');const ap=$('#app');ap.className=chg?'anim':'';ap.innerHTML=(ad?`<div class="adb"><span>🛠 Admin mode · editing <b>${esc(curP().name)}</b></span><button data-a="adx">Exit</button></div>`:'')+h;if(chg)window.scrollTo(0,0)}
 function sheet(h){$('#sh').innerHTML='<div class="bk" data-a="close"></div><div class="pn">'+h+'</div>';$('#sh').hidden=false;const i=$('#sh input');if(i)setTimeout(()=>i.focus(),50)}
 const val=id=>{const e=$('#'+id);return e?e.value.trim():''};
+const INC=[['Salary','💵'],['Business','🏪'],['Gift','🎁'],['Other','✨']],INE=Object.fromEntries(INC);
 function addSheet(type,id){const t=id?S.txs.find(x=>x.id===id):null;if(t)type=t.type;
- const ttl={expense:'Add expense',income:'Record salary',saving:'Save money',adj:'Balance check'}[type];
- const nw=!t&&type==='expense',cur=t?t.cat:'';
+ const ttl={expense:'Add expense',income:'Add income',saving:'Save money',adj:'Balance check'}[type];
+ const ex=type==='expense',inc=type==='income',nw=!t&&(ex||inc),cur=t?(t.cat||(inc?'Salary':'')):'';
  const fq={};S.txs.forEach(x=>{if(x.type==='expense')fq[x.cat]=(fq[x.cat]||0)+1});
  const ord=S.cats.map((c,i)=>i).sort((x,y)=>(fq[S.cats[y][0]]||0)-(fq[S.cats[x][0]]||0));
- const chips=nw?`<p class="mut" style="margin:8px 0 10px;text-align:center">Tap a category to save</p><div class="chips">${ord.map(i=>`<button class="cb" data-a="ec:${i}">${S.cats[i][1]} ${esc(S.cats[i][0])}</button>`).join('')}</div>`
- :type==='expense'?`<div class="chips" style="margin-top:12px">${S.cats.map(c=>`<label class="chip"><input type="radio" name="cat" value="${esc(c[0])}" ${c[0]===cur?'checked':''}><span>${c[1]} ${esc(c[0])}</span></label>`).join('')}</div><input id="nc" placeholder="Or add a new category">`:'';
- const extra=`<input id="dt" type="date" value="${t?t.date:today()}" aria-label="Date"><input id="nt" placeholder="Note (optional)" value="${t?esc(t.note||''):''}">`;
+ const opts=inc?INC:S.cats;
+ const chips=nw?`<p class="mut" style="margin:8px 0 10px;text-align:center">${inc?'Tap where it came from to save':'Tap a category to save'}</p><div class="chips">${inc?INC.map((c,i)=>`<button class="cb" data-a="ei:${i}">${c[1]} ${c[0]}</button>`).join(''):ord.map(i=>`<button class="cb" data-a="ec:${i}">${S.cats[i][1]} ${esc(S.cats[i][0])}</button>`).join('')}</div>`
+ :(ex||inc)?`<div class="chips" style="margin-top:12px">${opts.map(c=>`<label class="chip"><input type="radio" name="cat" value="${esc(c[0])}" ${c[0]===cur?'checked':''}><span>${c[1]} ${esc(c[0])}</span></label>`).join('')}</div>${ex?'<input id="nc" placeholder="Or add a new category">':''}`:'';
+ const extra=`<input id="dt" type="date" value="${t?t.date:today()}" aria-label="Date"><input id="nt" placeholder="${inc?'Note, e.g. who paid you (optional)':'Note (optional)'}" value="${t?esc(t.note||''):''}">`;
  const sv=`<button class="pri" data-a="commit:${type}:${id||''}">Save</button>`;
- const det=`<details style="margin-top:12px"><summary class="mut" style="cursor:pointer;padding:6px 0">More options</summary>${nw?'<input id="nc" placeholder="New category">':''}${extra}${nw?'<button class="pri" data-a="commit:expense:">Save with these options</button>':''}</details>`;
- sheet(`<h3>${ttl}</h3><input id="am" class="big" inputmode="decimal" placeholder="₹0" value="${t?Math.abs(t.amt):type==='income'?(S.salary||''):''}" aria-label="Amount">`+chips+
+ const det=`<details style="margin-top:12px"><summary class="mut" style="cursor:pointer;padding:6px 0">More options</summary>${nw&&ex?'<input id="nc" placeholder="New category">':''}${extra}${nw?`<button class="pri" data-a="commit:${type}:">Save with these options</button>`:''}</details>`;
+ sheet(`<h3>${ttl}</h3><input id="am" class="big" inputmode="decimal" placeholder="₹0" value="${t?Math.abs(t.amt):''}" aria-label="Amount">`+chips+
  (t?extra+sv+`<button class="del" data-a="del:${id}">Delete</button>`:nw?det:sv+det))}
+
 const A={
  tab(t){tab=t;render()},close(){$('#sh').hidden=true},
- add(t){addSheet(t)},ec(i){A.commit('expense','',S.cats[i][0])},edit(id){addSheet('',id)},
+ add(t){addSheet(t)},ei(i){if(!(parseFloat(val('am'))>0)&&INC[i][0]==='Salary'&&S.salary>0)$('#am').value=S.salary;A.commit('income','',INC[i][0])},
+ ec(i){A.commit('expense','',S.cats[i][0])},edit(id){addSheet('',id)},
  commit(type,id,co){const a=parseFloat(val('am'));if(!(a>0))return $('#am').focus();
-  let cat=type==='expense'?co||(document.querySelector('input[name=cat]:checked')||{}).value||'Other':'';const nc=co?'':val('nc');
+  let cat=(type==='expense'||type==='income')?co||(document.querySelector('input[name=cat]:checked')||{}).value||(type==='income'?'Salary':'Other'):'';const nc=co?'':val('nc');
   mutate(()=>{if(nc){if(!S.cats.some(c=>c[0].toLowerCase()===nc.toLowerCase()))S.cats.push([nc,'🏷️']);cat=nc}
    const o={type,amt:a,cat,date:val('dt')||today(),note:val('nt')};
-   if(id){Object.assign(S.txs.find(x=>x.id===id),o)}else S.txs.push({id:uid(),...o})},id?'Updated':'Saved');A.close();if(!id)ok(type==='income'?'Salary recorded':type==='saving'?'Saved':'Expense added')},
+   if(id){Object.assign(S.txs.find(x=>x.id===id),o)}else S.txs.push({id:uid(),...o})},id?'Updated':'Saved');A.close();if(!id)ok(type==='income'?'Income added':type==='saving'?'Saved':'Expense added')},
  del(id){mutate(()=>{const t=S.txs.find(x=>x.id===id);if(t&&t.billId){const b=S.bills.find(x=>x.id===t.billId);if(b)b.paid=null}S.txs=S.txs.filter(x=>x.id!==id)},'Deleted');A.close()},
  quick(n){mutate(()=>S.txs.push({id:uid(),type:'saving',amt:+n,cat:'',date:today(),note:''}),'Saved ₹'+n);ok('Saved')},
  pay(id){mutate(()=>{const b=S.bills.find(x=>x.id===id);b.paid=mk();S.txs.push({id:uid(),type:'expense',amt:b.amt,cat:'Bills',date:today(),note:b.name,billId:id})},'Marked as paid');ok('Bill paid')},
