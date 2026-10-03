@@ -182,7 +182,7 @@ if(!S.sv6){let e=0;for(const t of S.txs)if(t.type==='saving')e+=t.amt;S.open.sav
 if(!S.zero){let e=0;for(const t of S.txs)e+=(t.type==='income'||t.type==='adj')?t.amt:-t.amt;S.open.avail=-e;S.zero=1;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(x){}}
 const persist=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 let tab='home',prev=null,tt;
-function mutate(fn,msg){prev=JSON.stringify(S);fn();persist();dirty=true;cm=null;render();if(msg)toast(msg)}
+function mutate(fn,msg){prev=JSON.stringify(S);fn();S._ts=Date.now();persist();dirty=true;cm=null;render();schedPush();if(msg)toast(msg)}
 function toast(m){const t=$('#toast');t.innerHTML=esc(m)+'<button data-a="undo">Undo</button>';t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>{t.hidden=true;prev=null},6000)}
 let dirty=true,memo=null;
 function C(){if(!dirty&&memo&&memo.d===today())return memo;const m=mk(),pm=prevMk();
@@ -245,7 +245,7 @@ function plan(){const c=C(),exp=c.inc>0?0:S.salary,after=c.avail-c.up+exp;
  <div class="hd"><b>Lent and borrowed</b><button class="btn" data-a="loan:">Add</button></div>
  <div class="card">${S.loans.length?S.loans.map(l=>`<button class="row" data-a="loan:${l.id}"><div class="em">🤝</div><div class="t"><b>${esc(l.who)}</b><small>${l.dir==='lent'?'Owes you':'You owe'}</small></div><div class="a ${l.dir==='lent'?'pos':'neg'}">${f(l.amt)}</div></button>`).join(''):'<div class="empty">Nothing lent or borrowed.</div>'}</div>
  <div class="card"><b>Balance check</b><p class="mut" style="margin:4px 0 0">Enter your real bank balance. Spendy adds an adjustment and keeps your history.</p><input id="bc" inputmode="decimal" placeholder="Actual balance"><button class="pri" style="margin-top:10px;padding:12px" data-a="bcheck">Check balance</button></div>
- <div class="card"><b>Backup</b><p class="mut" style="margin:4px 0 0">Copy your data and keep it somewhere safe.</p><button class="pri" style="margin-top:10px;padding:12px" data-a="backup">Copy backup</button></div>`}
+ <div class="card"><b>Backup</b><p class="mut" style="margin:4px 0 0">Copy your data and keep it somewhere safe.</p><button class="pri" style="margin-top:10px;padding:12px" data-a="backup">Copy backup</button><button class="pri" style="margin-top:8px;padding:12px;background:#dcf1e6;color:#0a3d2b" data-a="cloud">☁ Cloud backup and sync</button></div>`}
 function tog(){const c=C();const N={held:'Held for her',gave:'Given back',owes:'She owes you',iowe:'You owe her'};
  return `<div class="rose"><h1>Together</h1><p class="mut">Her money stays separate from your Safe to spend.</p>
  <div class="hero"><span>Money held for her</span><h2>${f(c.held)}</h2><div class="split"><div><b>${f(c.owes)}</b>She owes you</div><div><b>${f(c.iowe)}</b>You owe her</div></div></div>
@@ -322,7 +322,7 @@ const ini=p=>esc((p.name.trim()[0]||'S').toUpperCase());
 const LK=['unlock','admin','cset1','cset2','aset1','aset2'];
 function picker(){A.close();ad=null;nu=null;kp={mode:'',buf:'',msg:''};const l=$('#lk'),a=PF.list.find(x=>x.id===PF.admin);l.hidden=false;
  l.innerHTML=`<div class="lw"><div class="ua" aria-hidden="true">S</div><h2>Who’s using Spendy?</h2><p>Tap your name</p><div class="ug">${PF.list.map(p=>`<button class="ub" data-a="pick:${p.id}"><i>${ini(p)}</i><b>${esc(p.name)}</b><small>${p.id===PF.admin?'Admin':p.pin?'🔒 PIN':''}</small></button>`).join('')}</div><button class="lk2" data-a="newu">＋ New profile</button>${a&&a.pin?'<button class="lk2" data-a="adm">🛠 Admin</button>':''}</div>`}
-function enter(id){if(!ad)setSess(id);PF.cur=id;savePF();loadP();$('#lk').hidden=true;$('#lk').innerHTML='';render()}
+function enter(id){if(!ad)setSess(id);PF.cur=id;savePF();loadP();$('#lk').hidden=true;$('#lk').innerHTML='';render();syncOpen()}
 function createForm(){A.close();const l=$('#lk');l.hidden=false;l.innerHTML=`<div class="lw"><h2>Create your profile</h2><p>Your money stays private behind your own PIN.</p><input id="cn" placeholder="Your name" maxlength="20" aria-label="Your name"><input id="cb" inputmode="decimal" placeholder="Money in your account now (₹)" aria-label="Current balance"><input id="cs" inputmode="decimal" placeholder="Monthly salary (optional)" aria-label="Monthly salary"><button class="pri" data-a="cnext">Next: choose a PIN</button><button class="lk2" data-a="lkback">Cancel</button></div>`}
 function adminPanel(msg){ad=null;const l=$('#lk');l.hidden=false;
  l.innerHTML=`<div class="lw" style="max-width:400px"><div class="ua">🛠</div><h2>Admin</h2><p>${esc(msg||'Help people with their accounts.')}</p><div style="width:100%;display:grid;gap:10px">${PF.list.map(p=>`<div class="ar"><div class="ai">${ini(p)}</div><div class="at"><b>${esc(p.name)}${p.id===PF.admin?' (admin)':''}</b><small>${p.pin?'PIN set':'No PIN'}</small></div><div class="ab"><button data-a="aopen:${p.id}">Open</button><button data-a="arpin:${p.id}">${p.pin?'Reset PIN':'Set PIN'}</button>${p.id!==PF.admin?`<button class="rd" data-a="adel:${p.id}">Delete</button>`:''}</div></div>`).join('')}</div><button class="lk2" data-a="lkback">Done</button></div>`}
@@ -345,6 +345,32 @@ function kpDone(){const m=kp.mode,p=PF.list.find(x=>x.id===kp.id),b=kp.buf;if(!p
  else if(m==='set2'){if(b===kp.first){p.pin=mkpin(b);savePF();A.close();ok('PIN set')}else{kp={mode:'set1',id:p.id,buf:'',msg:'PINs did not match. Try again.'};kpRender()}}
  else if(m==='aset2'){if(b===kp.first){p.pin=mkpin(b);savePF();adminPanel('PIN updated for '+p.name)}else{kp={mode:'aset1',id:p.id,buf:'',msg:'PINs did not match. Try again.'};kpRender()}}
  else if(m==='cset2'){if(b===kp.first){const id=uid(),key='spendy.p.'+id,d=blank();d.open.avail=nu.bal;d.salary=nu.sal;try{localStorage.setItem(key,JSON.stringify(d))}catch(e){}PF.list.push({id,name:nu.name,key,pin:mkpin(b)});savePF();const n=nu.name;nu=null;enter(id);ok('Welcome, '+n)}else{kp={mode:'cset1',buf:'',msg:'PINs did not match. Try again.'};kpRender()}}}
+const SB_URL='',SB_KEY='';
+const CFG=()=>{if(SB_URL&&SB_KEY)return{u:SB_URL,k:SB_KEY};try{const c=JSON.parse(localStorage.getItem('spendy.cfg'));return c&&c.u&&c.k?c:null}catch(e){return null}};
+const cErr=x=>x instanceof TypeError?'Could not reach the cloud. Check your internet connection.':(x&&x.message)||'Something went wrong.';
+async function sbAuth(path,body){const c=CFG(),r=await fetch(c.u.replace(/\/$/,'')+'/auth/v1/'+path,{method:'POST',headers:{apikey:c.k,'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.msg||j.error_description||j.message||'Request failed');return j}
+async function tok(p){const k=p.cloud;if(k.exp-Date.now()>60000)return k.access;const j=await sbAuth('token?grant_type=refresh_token',{refresh_token:k.refresh}).catch(()=>{throw new Error('Session expired. Please sign in again.')});Object.assign(k,{access:j.access_token,refresh:j.refresh_token||k.refresh,exp:Date.now()+(j.expires_in||3600)*1000});savePF();return k.access}
+async function sbRest(p,method,qs,body,prefer){const c=CFG(),h={apikey:c.k,Authorization:'Bearer '+await tok(p),'Content-Type':'application/json'};if(prefer)h.Prefer=prefer;
+ const r=await fetch(c.u.replace(/\/$/,'')+'/rest/v1/spendy_data'+qs,{method,headers:h,body:body?JSON.stringify(body):undefined});if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error(r.status===401?'Session expired. Please sign in again.':(j.message||'Cloud error '+r.status))}return method==='GET'?r.json():null}
+const pull=async p=>{const a=await sbRest(p,'GET','?profile_id=eq.main&select=data,updated_at');return a&&a[0]||null};
+const push=p=>sbRest(p,'POST','?on_conflict=user_id,profile_id',{user_id:p.cloud.uid,profile_id:'main',data:S,updated_at:new Date().toISOString()},'resolution=merge-duplicates,return=minimal');
+let syncT=0;
+function schedPush(){const p=curP();if(!p.cloud||!CFG())return;clearTimeout(syncT);syncT=setTimeout(()=>push(p).then(()=>{p.cloud.last=Date.now();savePF()}).catch(()=>{}),1500)}
+async function syncOpen(){const p=curP();if(!p.cloud||!CFG())return;try{const row=await pull(p),rts=row&&row.data&&row.data._ts||0,lts=S._ts||0;if(row&&rts>lts){S=row.data;persist();dirty=true;cm=null;render()}else if(!row||lts>rts)await push(p);p.cloud.last=Date.now();savePF()}catch(e){}}
+const useRemote=d=>{S=d;persist();dirty=true;cm=null;render()};
+function cloudSheet(msg){const p=curP(),c=CFG();let h='<h3>☁ Cloud backup</h3>';
+ if(!c)h+='<p class="mut" style="margin:0">Paste your Supabase project details. People you share Spendy with use the same two values.</p><input id="cu" placeholder="Project URL, https://xxxx.supabase.co" aria-label="Project URL" autocapitalize="off"><input id="ck" placeholder="Anon public key" aria-label="Anon key" autocapitalize="off"><button class="pri" data-a="csave">Save</button>';
+ else if(!p.cloud)h+='<p class="mut" style="margin:0">Your data is saved in your own account, so it survives deleting the app or changing phones.</p><input id="ce" type="email" placeholder="Email" aria-label="Email" autocomplete="email" autocapitalize="off"><input id="cp" type="password" placeholder="Password, at least 6 characters" aria-label="Password" autocomplete="current-password"><button class="pri" data-a="cin">Sign in</button><button class="del" style="color:var(--blue)" data-a="cup">Create account</button>';
+ else h+=`<p style="margin:0">Connected as <b>${esc(p.cloud.email)}</b></p><p class="mut">${p.cloud.last?'Last synced '+new Date(p.cloud.last).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'Not synced yet'}</p><button class="pri" data-a="csync">Sync now</button><button class="del" style="color:var(--blue)" data-a="crest">Restore from cloud</button><button class="del" data-a="cout">Sign out of cloud</button>`;
+ if(msg)h+=`<p class="mut" id="cmsg" role="status" style="margin:10px 0 0;color:var(--ink)">${esc(msg)}</p>`;sheet(h)}
+async function cLogin(up){const e=val('ce'),pw=val('cp');if(!e||pw.length<6)return cloudSheet('Enter your email and a password of at least 6 characters.');cloudSheet('Working…');
+ try{const j=up?await sbAuth('signup',{email:e,password:pw}):await sbAuth('token?grant_type=password',{email:e,password:pw});
+  if(!j.access_token)return cloudSheet('Account created. Check your email to confirm it, then sign in.');
+  curP().cloud={email:j.user.email,uid:j.user.id,access:j.access_token,refresh:j.refresh_token,exp:Date.now()+(j.expires_in||3600)*1000};savePF();await afterAuth()}catch(x){cloudSheet(cErr(x))}}
+async function afterAuth(){const p=curP();try{const row=await pull(p),empty=!S.txs.length&&!S.bills.length&&!S.open.avail&&!S.partner.length&&!S._ts;
+ if(!row){S._ts=S._ts||Date.now();persist();await push(p);p.cloud.last=Date.now();savePF();return cloudSheet('Connected. Your data is backed up.')}
+ if(empty){useRemote(row.data);p.cloud.last=Date.now();savePF();return cloudSheet('Connected. Your cloud data was restored.')}
+ sheet('<h3>Cloud already has data</h3><p>This account already has saved data. Which should Spendy keep?</p><button class="pri" data-a="cuse">Use cloud data (replaces this phone)</button><button class="del" style="color:var(--blue)" data-a="ckeep">Keep this phone\u2019s data (replaces cloud)</button>')}catch(x){cloudSheet(cErr(x))}}
 function render(){chg=lt!==tab;lt=tab;nav();let h={home,act,sav,cmp,plan,tog}[tab]();if(tab!=='home')h=h.replace(/<h1>(.*?)<\/h1><p class="mut">(.*?)<\/p>/,'<div class="gh sm"><h1>$1</h1><p>$2</p></div>');const ap=$('#app');ap.className=chg?'anim':'';ap.innerHTML=(ad?`<div class="adb"><span>🛠 Admin mode · editing <b>${esc(curP().name)}</b></span><button data-a="adx">Exit</button></div>`:'')+h;if(chg)window.scrollTo(0,0)}
 function sheet(h){$('#sh').innerHTML='<div class="bk" data-a="close"></div><div class="pn">'+h+'</div>';$('#sh').hidden=false;const i=$('#sh input');if(i)setTimeout(()=>i.focus(),50)}
 const val=id=>{const e=$('#'+id);return e?e.value.trim():''};
@@ -410,13 +436,21 @@ const A={
  adel(id){const p=PF.list.find(x=>x.id===id);$('#lk').innerHTML=`<div class="lw"><h2>Delete ${esc(p.name)}?</h2><p>This permanently erases all of ${esc(p.name)}’s data on this phone.</p><button class="pri" style="background:#e11d48;color:#fff" data-a="adelc:${id}">Delete user</button><button class="lk2" data-a="apanel">Cancel</button></div>`},
  adelc(id){const p=PF.list.find(x=>x.id===id);if(!p||id===PF.admin)return adminPanel();try{localStorage.removeItem(p.key)}catch(e){}PF.list=PF.list.filter(x=>x.id!==id);if(getSess()===id)setSess(null);if(PF.cur===id)PF.cur=PF.admin;savePF();adminPanel(p.name+' was deleted')},
  reset(id){const p=PF.list.find(x=>x.id===id);try{localStorage.removeItem(p.key)}catch(e){}delete p.pin;enter(id)},
+ cloud(){cloudSheet()},
+ csave(){const u=val('cu'),k=val('ck');if(!/^https:\/\//.test(u)||k.length<20)return cloudSheet('Enter the full https:// project URL and the anon key.');try{localStorage.setItem('spendy.cfg',JSON.stringify({u,k}))}catch(e){}cloudSheet('Saved. Now sign in or create your account.')},
+ cin(){cLogin(0)},cup(){cLogin(1)},
+ async csync(){cloudSheet('Syncing…');try{await syncOpen();cloudSheet('Synced.')}catch(x){cloudSheet(cErr(x))}},
+ async crest(){cloudSheet('Restoring…');try{const row=await pull(curP());if(!row)return cloudSheet('No cloud data found for this account yet.');useRemote(row.data);cloudSheet('Restored from the cloud.')}catch(x){cloudSheet(cErr(x))}},
+ async cuse(){try{const row=await pull(curP());useRemote(row.data);curP().cloud.last=Date.now();savePF();cloudSheet('Restored from the cloud.')}catch(x){cloudSheet(cErr(x))}},
+ async ckeep(){try{S._ts=Date.now();persist();await push(curP());curP().cloud.last=Date.now();savePF();cloudSheet('Done. Your cloud copy now matches this phone.')}catch(x){cloudSheet(cErr(x))}},
+ cout(){delete curP().cloud;savePF();cloudSheet('Signed out of the cloud. Your data stays on this phone.')},
  prof(){if(ad)return A.adx();const adm=curP().id===PF.admin;sheet(`<h3>Users</h3>${PF.list.map(p=>`<button class="row" data-a="sp:${p.id}"><div class="em">${ini(p)}</div><div class="t"><b>${esc(p.name)}${p.id===PF.admin?' · admin':''}</b><small>${p.id===PF.cur?'Current user':(p.pin?'🔒 Tap to switch':'Tap to switch')}</small></div>${p.id===PF.cur?'<div class="a pos">✓</div>':''}</button>`).join('')}<button class="pri" data-a="newu">＋ Add a new user</button><input id="pnm" placeholder="Rename current user" maxlength="20" aria-label="New name"><button class="del" style="color:var(--blue)" data-a="renp">Save new name</button>${!adm&&PF.list.length>1?'<button class="del" data-a="delp">Delete current user</button>':''}<hr style="border:0;border-top:1px solid var(--line);margin:8px 0">${curP().pin?'<button class="del" style="color:var(--blue)" data-a="pin:chg">Change PIN</button><button class="del" style="color:var(--blue)" data-a="pin:rem">Remove PIN</button>':'<button class="del" style="color:var(--blue)" data-a="pin:set">Set a PIN</button>'}${needPick()?'<button class="del" style="color:var(--ink)" data-a="lock">Log out</button>':''}${adm?'<button class="del" style="color:#b45309" data-a="apanel">🛠 Admin tools</button>':''}`)},
  sp(id){A.close();if(id===PF.cur)return;const p=PF.list.find(x=>x.id===id);if(p.pin){kp={mode:'unlock',id,buf:'',msg:'',from:1};kpRender();return}PF.cur=id;savePF();loadP();render();ok('Hi, '+curP().name)},
  renp(){const n=val('pnm');if(!n)return $('#pnm').focus();curP().name=n;savePF();A.close();render()},
  delp(){sheet(`<h3>Delete ${esc(curP().name)}?</h3><p style="font-size:15px">This permanently removes this user and all of its data on this phone.</p><button class="pri" style="background:#e11d48;color:#fff" data-a="delp2">Delete user</button><button class="del" style="color:var(--ink)" data-a="prof">Cancel</button>`)},
  delp2(){if(PF.list.length<2)return A.close();const p=curP();try{localStorage.removeItem(p.key)}catch(e){}PF.list=PF.list.filter(x=>x.id!==p.id);if(getSess()===p.id)setSess(null);PF.cur=PF.list[0].id;savePF();loadP();A.close();render();if(needPick())picker()},
  tip(){sheet(`<h3>🐷 Piggy says</h3><p style="font-size:16px">${tip(C())}</p>`)},
- undo(){if(!prev)return;S=JSON.parse(prev);prev=null;persist();dirty=true;cm=null;$('#toast').hidden=true;render()}
+ undo(){if(!prev)return;S=JSON.parse(prev);prev=null;S._ts=Date.now();persist();schedPush();dirty=true;cm=null;$('#toast').hidden=true;render()}
 };
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el)return;const p=el.dataset.a.split(':');const fn=A[p[0]];if(fn)fn(...p.slice(1))});
 document.addEventListener('input',e=>{if(e.target.id!=='pc')return;const c=C(),x=parseFloat(e.target.value)||0,r=$('#pcr');
@@ -428,5 +462,5 @@ if(seen){document.getElementById('go').hidden=true;setTimeout(close,1500)}
 o.addEventListener('click',close)})();
 if(window.visualViewport){const vf=()=>{const v=visualViewport;document.documentElement.style.setProperty('--kb',Math.max(0,innerHeight-v.height-v.offsetTop)+'px')};visualViewport.addEventListener('resize',vf);visualViewport.addEventListener('scroll',vf)}
 render();
-if(!fresh&&needPick()){const sid=getSess();if(sid&&PF.list.some(p=>p.id===sid)){if(sid!==PF.cur)enter(sid)}else picker()}
+if(!fresh&&needPick()){const sid=getSess();if(sid&&PF.list.some(p=>p.id===sid)){if(sid!==PF.cur)enter(sid);else syncOpen()}else picker()}else if(!fresh)syncOpen();
 </script></body></html>
