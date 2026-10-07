@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="color-scheme" content="light">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src https://dqqclrnfzrquybryhncw.supabase.co; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#08402d">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -147,6 +148,7 @@ input{-webkit-appearance:none;appearance:none}
 .qg button,.ub{min-height:44px}
 .lk2{min-height:44px;padding:12px 16px}.ab button{min-height:44px}.btn.o{min-width:44px}button.t{min-height:44px}[data-a="setsal"]{min-height:44px;min-width:44px}summary.mut{line-height:32px}
 @media(max-height:720px){.kpad{grid-template-columns:repeat(3,64px);gap:10px}.kpad button{width:64px;height:64px;font-size:24px}.kpad span{width:64px}.ua,.ub i{width:64px;height:64px;font-size:28px}.lw h2{font-size:24px}.kd{margin:2px 0 8px}.lw{gap:8px}}
+.qa2{display:flex;gap:8px;margin-top:12px}.qa2 input{margin:0;flex:1}.ans{background:var(--chip);border-radius:16px;padding:14px;font-size:15px;line-height:1.45}.sf{display:grid;grid-template-columns:1fr 112px;gap:8px;margin-bottom:12px}.sf input,.sf select{margin:0}.row{content-visibility:auto;contain-intrinsic-size:auto 64px}
 </style></head><body>
 <div id="spl" role="dialog" aria-label="Welcome to Spendy"><div class="sc"><div class="sl" aria-hidden="true">S</div><h2>Spendy</h2><p>Know what you can safely spend</p><button class="pri" id="go">Get started</button></div></div>
 <div id="app"></div><div id="lk" hidden></div><div id="sh" hidden></div><div id="toast" hidden></div>
@@ -175,8 +177,17 @@ if(!PF.admin||!PF.list.some(x=>x.id===PF.admin))PF.admin=PF.list[0].id;
 const curP=()=>PF.list.find(x=>x.id===PF.cur)||PF.list[0];
 function blank(){const b=seed();return Object.assign(b,{open:{avail:0,sav:0},salary:0,bills:[],partner:[],loans:[],zero:1,sv6:1,h2:1})}
 KEY=curP().key;
-let S=null;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
-if(!S||!S.txs)S=blank();
+function clean(d){if(!d||typeof d!=='object'||!Array.isArray(d.txs))return null;const id=x=>typeof x==='string'&&/^[\w-]{1,40}$/.test(x),n=x=>Number.isFinite(+x)?+x:0,st=(x,m)=>String(x==null?'':x).slice(0,m),dt=x=>/^\d{4}-\d\d-\d\d$/.test(x)?x:today(),arr=x=>Array.isArray(x)?x:[];
+ d.txs=d.txs.filter(t=>t&&id(t.id)&&['expense','income','saving','adj'].includes(t.type)).map(t=>({id:t.id,type:t.type,amt:n(t.amt),cat:st(t.cat,40),date:dt(t.date),note:st(t.note,200),billId:t.billId&&id(t.billId)?t.billId:undefined}));
+ d.bills=arr(d.bills).filter(b=>b&&id(b.id)).map(b=>({id:b.id,name:st(b.name,40),amt:n(b.amt),day:Math.min(31,Math.max(1,parseInt(b.day)||1)),paid:/^\d{4}-\d\d$/.test(b.paid)?b.paid:null}));
+ d.partner=arr(d.partner).filter(p=>p&&id(p.id)&&['held','gave','owes','iowe'].includes(p.k)).map(p=>({id:p.id,k:p.k,amt:n(p.amt),date:dt(p.date),note:st(p.note,100)}));
+ d.loans=arr(d.loans).filter(l=>l&&id(l.id)).map(l=>({id:l.id,who:st(l.who,40),amt:n(l.amt),dir:l.dir==='borrowed'?'borrowed':'lent'}));
+ d.cats=arr(d.cats).filter(c=>Array.isArray(c)&&typeof c[0]==='string').map(c=>[st(c[0],40),st(c[1],8)]);if(!d.cats.length)d.cats=seed().cats;
+ d.open={avail:n(d.open&&d.open.avail),sav:n(d.open&&d.open.sav)};d.salary=n(d.salary);
+ d.budgets=d.budgets&&typeof d.budgets==='object'?Object.fromEntries(Object.entries(d.budgets).filter(e=>n(e[1])>0).map(e=>[st(e[0],40),n(e[1])])):{};
+ d.lastBackup=n(d.lastBackup);d.bnz=n(d.bnz);d._ts=n(d._ts);return d}
+let S=null;try{S=clean(JSON.parse(localStorage.getItem(KEY)))}catch(e){}
+if(!S)S=blank();
 if(!S.h2){let h=0;for(const p of S.partner){if(p.k==='held')h+=p.amt;else if(p.k==='gave')h-=p.amt}const d=16985-h;if(d)S.partner.push({id:uid(),k:d>0?'held':'gave',amt:Math.abs(d),date:today(),note:'Balance update'});S.h2=1;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(x){}}
 if(!S.sv6){let e=0;for(const t of S.txs)if(t.type==='saving')e+=t.amt;S.open.sav=6000-e;S.sv6=1;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(x){}}
 if(!S.zero){let e=0;for(const t of S.txs)e+=(t.type==='income'||t.type==='adj')?t.amt:-t.amt;S.open.avail=-e;S.zero=1;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(x){}}
@@ -201,13 +212,13 @@ function C(){if(!dirty&&memo&&memo.d===today())return memo;const m=mk(),pm=prevM
 const greet=()=>{const h=new Date().getHours();return h<12?'Good Morning!':h<17?'Good Afternoon!':'Good Evening!'};
 const catE=n=>(S.cats.find(c=>c[0]===n)||[0,'💸'])[1];
 const dfmt=s=>new Date(s+'T00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short'});
-function tip(c){if(c.raw<0)return 'Bills need more than you have. Hold off on extras.';
+function tip(c){const ob=Object.entries(S.budgets||{}).find(e=>(c.cat[e[0]]||0)>e[1]);if(ob)return ob[0]+' budget is over. Slow down on it.';if(c.raw<0)return 'Bills need more than you have. Hold off on extras.';
  if(!c.inc)return 'Record your salary to see what is safe to spend.';
  if(!c.sv)return 'A small save today starts your savings habit.';
  return 'You saved '+f(c.sv)+' this month. Keep it going.'}
 const nav=()=>{$('#nav').innerHTML=[['home','home','Home'],['act','card','Activity'],['sav','coin','Savings'],['add'],['cmp','chart','Compare'],['plan','wallet','Plan'],['tog','heart','Together']].map(x=>x[0]==='add'?'<button class="plus" data-a="add:expense" aria-label="Add expense">+</button>':`<button class="${tab===x[0]?'on'+(chg?' pop':''):''}" data-a="tab:${x[0]}" aria-label="${x[2]}">${ic(x[1])}</button>`).join('')};
 function billRow(b,c){const paid=b.paid===mk(),dd=b.day-new Date().getDate(),cl=paid?'':dd<=0?' due':dd<=3?' soon':'';return `<div class="row${cl}"><div class="em">🧾</div><button class="t" data-a="bill:${b.id}" style="background:none;border:0;text-align:left;padding:0;color:inherit;font:inherit"><b>${esc(b.name)}</b><small>Due day ${b.day} · ${paid?'Paid':'Upcoming'}</small></button><div class="a">${f(b.amt)}</div><button class="btn ${paid?'o':''}" data-a="${paid?'unpay':'pay'}:${b.id}">${paid?'Unpay':'Pay'}</button></div>`}
-const P={hex:'<path d="M12 2l8.5 5v10L12 22l-8.5-5V7z"/>',minus:'<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>',cash:'<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>',coin:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.8 1.8 0 010 3.6h-3a1.8 1.8 0 000 3.6h4"/>',heart:'<path d="M12 21s-8-5-8-11a4.5 4.5 0 018-2.7A4.5 4.5 0 0120 10c0 6-8 11-8 11z"/>',bill:'<path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4M10 12h6M10 16h6"/>',chart:'<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>',card:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/>',down:'<path d="M12 3v12M7 11l5 5 5-5M5 21h14"/>',home:'<path d="M3 11l9-8 9 8M5 10v10h14V10"/>',wallet:'<path d="M3 7h16a2 2 0 012 2v10a2 2 0 01-2 2H3z"/><path d="M3 7l12-4v4M17 14h2"/>',check:'<path d="M5 12l5 5 9-10"/>'};
+const P={hex:'<path d="M12 2l8.5 5v10L12 22l-8.5-5V7z"/>',minus:'<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>',cash:'<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>',coin:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.8 1.8 0 010 3.6h-3a1.8 1.8 0 000 3.6h4"/>',heart:'<path d="M12 21s-8-5-8-11a4.5 4.5 0 018-2.7A4.5 4.5 0 0120 10c0 6-8 11-8 11z"/>',bill:'<path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4M10 12h6M10 16h6"/>',chart:'<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>',card:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/>',down:'<path d="M12 3v12M7 11l5 5 5-5M5 21h14"/>',home:'<path d="M3 11l9-8 9 8M5 10v10h14V10"/>',wallet:'<path d="M3 7h16a2 2 0 012 2v10a2 2 0 01-2 2H3z"/><path d="M3 7l12-4v4M17 14h2"/>',chat:'<path d="M4 5h16v11H9l-5 4z"/>',check:'<path d="M5 12l5 5 9-10"/>'};
 const ic=n=>`<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
 function lim(c){const L=Math.max(0,c.raw+c.tsp)/c.days,r=L>0?c.tsp/L:(c.tsp>0?2:0);
  const col=r>1?'#e11d48':r>=.8?'#f59e0b':'#a3e635',cl=r>1?' due':r>=.8?' soon':'';
@@ -219,21 +230,26 @@ function lim(c){const L=Math.max(0,c.raw+c.tsp)/c.days,r=L>0?c.tsp/L:(c.tsp>0?2:
  <div class="lf"><span class="st">${state}</span><span class="lp">${f(L)}/day</span></div></div>`}
 function home(){const c=C(),d=new Date();
  const cmpS=c.psp>0?`<small class="${c.sp<=c.psp?'pos':'neg'}">${c.sp<=c.psp?'▼':'▲'} ${Math.abs(Math.round((c.sp-c.psp)/c.psp*100))}% vs last mo.</small>`:'';
- const qa=[['add:expense','minus','Expense'],['add:income','cash','Income'],['add:saving','coin','Save'],['tab:tog','heart','Together'],['tab:plan','bill','Bills'],['tab:cmp','chart','Compare'],['tab:act','card','Activity'],['backup','down','Backup']];
+ const qa=[['add:expense','minus','Expense'],['add:income','cash','Income'],['add:saving','coin','Save'],['tab:tog','heart','Together'],['tab:plan','bill','Bills'],['tab:cmp','chart','Compare'],['tab:act','card','Activity'],['ask','chat','Ask']];
  const deal=b=>{const dd=b.day-d.getDate();const st=dd<0?"Overdue":dd===0?"Due today":dd+" days left",cl=dd<=0?" due":dd<=3?" soon":"";return `<div class="deal${cl}"><div class="dh"><div><b>${esc(b.name)}</b><small>Monthly bill</small></div><button class="rb" data-a="pay:${b.id}" aria-label="Mark ${esc(b.name)} as paid">${ic('check')}</button></div><div class="dg"><div><small>Amount</small><b>${f(b.amt)}</b></div><div><small>Due</small><b>Day ${b.day}</b></div><div><small>Status</small><b class="st">${st}</b></div></div></div>`};
  return `<div class="gh"><div class="g1"><button class="gtb" data-a="prof" aria-label="Switch user"><div class="hx">${esc(curP().name.trim()[0]||'S').toUpperCase()}</div><div class="gt"><small>${greet().replace('!','')}</small><b>${esc(curP().name)} ▾</b></div></button><button class="gc" data-a="tip" aria-label="Piggy tip">🐷</button></div>
  <div class="gr"><div><small>Safe to spend</small><div class="gb">${f(c.safe)}</div></div><span class="gp">${f(c.daily)}/day</span></div>
  <div class="gm">Available <b>${f(c.avail)}</b> · Upcoming bills <b>${f(c.up)}</b></div>
  <div class="gbtn"><button class="gl2" data-a="add:expense">+ Add expense</button><button class="gd" data-a="add:income">Income</button><button class="gc" data-a="tab:plan" aria-label="Plan">⋮</button></div></div>
- <div class="cq"><b style="font-size:17px">Quick actions</b><div class="qg">${qa.map(q=>`<button data-a="${q[0]}"><i>${ic(q[1])}</i>${q[2]}</button>`).join('')}</div></div>
- ${lim(c)}<div class="g3"><div class="card ci"><small>Income</small><b>${f(c.inc)}</b></div><div class="card cs"><small>Spent</small><b>${f(c.sp)}</b>${cmpS}</div><div class="card cv"><small>Saved</small><b>${f(c.sv)}</b></div></div>
+ <div class="cq"><b style="font-size:17px">Quick actions</b><div class="qa2"><input id="qa" enterkeyhint="done" placeholder="Type, e.g. lunch 250" aria-label="Quick add expense"><button class="btn" data-a="qadd">Add</button></div><div class="qg">${qa.map(q=>`<button data-a="${q[0]}"><i>${ic(q[1])}</i>${q[2]}</button>`).join('')}</div></div>
+ ${bkn()}${lim(c)}<div class="g3"><div class="card ci"><small>Income</small><b>${f(c.inc)}</b></div><div class="card cs"><small>Spent</small><b>${f(c.sp)}</b>${cmpS}</div><div class="card cv"><small>Saved</small><b>${f(c.sv)}</b></div></div>
  <div class="hd"><b style="font-size:18px">Upcoming bills</b><button class="btn o" data-a="tab:plan">See all</button></div>
  ${c.upL.length?c.upL.slice(0,4).map(deal).join(''):`<div class="card"><div class="empty">${S.bills.length?'All bills paid this month 🎉':'No bills yet. Add yours in Plan.'}</div></div>`}
  <div class="card gold"><div class="hd" style="margin:0"><b>🪙 Savings habit</b><span class="mut" style="margin:0">Savings ${f(c.sav)}</span></div><p class="mut" style="margin:6px 0 0">Saved this week: ${f(c.wk)}</p>
  <div class="sv"><button class="btn" data-a="quick:20">Save ₹20</button><button class="btn" data-a="quick:50">Save ₹50</button><button class="btn" data-a="quick:100">Save ₹100</button></div></div>`}
-function act(){const l=[...S.txs].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
- return `<h1>Activity</h1><p class="mut">Tap an entry to edit it.</p><div class="card">${l.length?l.map(t=>{const inc=t.type==='income'||(t.type==='adj'&&t.amt>0);const nm=t.type==='income'?(t.cat||'Salary'):t.type==='saving'?'Savings':t.type==='adj'?'Balance check':t.cat;const em=t.type==='income'?(INE[t.cat||'Salary']||'💰'):t.type==='saving'?'🏦':t.type==='adj'?'⚖️':catE(t.cat);
- return `<button class="row" data-a="edit:${t.id}"><div class="em">${em}</div><div class="t"><b>${esc(t.note||nm)}</b><small>${nm} · ${dfmt(t.date)}</small></div><div class="a ${inc?'pos':t.type==='saving'?'':'neg'}">${inc?'+':'−'}${f(Math.abs(t.amt))}</div></button>`}).join(''):'<div class="empty">No entries yet. Tap + to add your first expense.</div>'}</div>`}
+let aqs='',afc='',alim=60;
+function actRows(){const ql=aqs.toLowerCase();let l=[...S.txs].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
+ if(afc)l=l.filter(t=>afc==='__inc'?t.type==='income':afc==='__sav'?t.type==='saving':t.type==='expense'&&t.cat===afc);
+ if(ql)l=l.filter(t=>((t.note||'')+' '+(t.cat||'')+' '+t.amt+' '+(t.type==='income'?'income':t.type==='saving'?'savings':'')).toLowerCase().includes(ql));
+ const tot=l.length;l=l.slice(0,alim);
+ return l.length?l.map(t=>{const inc=t.type==='income'||(t.type==='adj'&&t.amt>0);const nm=t.type==='income'?(t.cat||'Salary'):t.type==='saving'?'Savings':t.type==='adj'?'Balance check':t.cat;const em=t.type==='income'?(INE[t.cat||'Salary']||'💰'):t.type==='saving'?'🏦':t.type==='adj'?'⚖️':catE(t.cat);
+ return `<button class="row" data-a="edit:${t.id}"><div class="em">${em}</div><div class="t"><b>${esc(t.note||nm)}</b><small>${nm} · ${dfmt(t.date)}</small></div><div class="a ${inc?'pos':t.type==='saving'?'':'neg'}">${inc?'+':'−'}${f(Math.abs(t.amt))}</div></button>`}).join('')+(tot>l.length?`<button class="btn o" style="width:100%;margin-top:10px" data-a="more">Show more (${tot-l.length})</button>`:''):`<div class="empty">${S.txs.length?'Nothing found.':'No entries yet. Tap + to add your first expense.'}</div>`}
+function act(){return `<h1>Activity</h1><p class="mut">Tap an entry to edit it.</p><div class="sf"><input id="as" type="search" placeholder="Search notes or amounts" value="${esc(aqs)}" aria-label="Search"><select id="af" aria-label="Filter"><option value="">All</option><option value="__inc" ${afc==='__inc'?'selected':''}>Income</option><option value="__sav" ${afc==='__sav'?'selected':''}>Savings</option>${S.cats.map(c=>`<option value="${esc(c[0])}" ${afc===c[0]?'selected':''}>${esc(c[0])}</option>`).join('')}</select></div><div class="card" id="alist">${actRows()}</div>`}
 function plan(){const c=C(),exp=c.inc>0?0:S.salary,after=c.avail-c.up+exp;
  const cats=Object.entries(c.cat).sort((a,b)=>b[1]-a[1]),mx=cats[0]?cats[0][1]:1;
  return `<h1>Plan</h1><p class="mut">Bills, forecast and checks.</p>
@@ -242,7 +258,7 @@ function plan(){const c=C(),exp=c.inc>0?0:S.salary,after=c.avail-c.up+exp;
  <div class="card"><b>Future money</b><div class="row"><div class="t"><b>Available now</b></div><div class="a">${f(c.avail)}</div></div><div class="row"><div class="t"><b>Unpaid bills</b></div><div class="a neg">−${f(c.up)}</div></div><div class="row"><div class="t"><b>Expected salary</b><small>${c.inc>0?'Already recorded this month':'Tap to change amount'}</small></div><button class="a" data-a="setsal" style="background:none;border:0;color:var(--green);font:inherit;font-weight:700">+${f(exp)}</button></div><div class="row"><div class="t"><b>After payday</b></div><div class="a">${f(after)}</div></div></div>
  <div class="card"><b>Can I afford this?</b><input id="pc" inputmode="decimal" placeholder="Enter purchase amount"><div id="pcr" class="mut" style="margin:10px 0 0">Safe to spend now: ${f(c.safe)}</div></div>
  <div class="card"><b>Spent by category</b>${cats.length?cats.map(x=>`<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${catE(x[0])} ${esc(x[0])}</span><b>${f(x[1])}</b></div><div class="bar"><i style="width:${x[1]/mx*100}%"></i></div></div>`).join(''):'<div class="empty">No spending this month.</div>'}</div>
- <div class="hd"><b>Lent and borrowed</b><button class="btn" data-a="loan:">Add</button></div>
+ ${bud(c)}<div class="hd"><b>Lent and borrowed</b><button class="btn" data-a="loan:">Add</button></div>
  <div class="card">${S.loans.length?S.loans.map(l=>`<button class="row" data-a="loan:${l.id}"><div class="em">🤝</div><div class="t"><b>${esc(l.who)}</b><small>${l.dir==='lent'?'Owes you':'You owe'}</small></div><div class="a ${l.dir==='lent'?'pos':'neg'}">${f(l.amt)}</div></button>`).join(''):'<div class="empty">Nothing lent or borrowed.</div>'}</div>
  <div class="card"><b>Balance check</b><p class="mut" style="margin:4px 0 0">Enter your real bank balance. Spendy adds an adjustment and keeps your history.</p><input id="bc" inputmode="decimal" placeholder="Actual balance"><button class="pri" style="margin-top:10px;padding:12px" data-a="bcheck">Check balance</button></div>
  <div class="card"><b>Backup</b><p class="mut" style="margin:4px 0 0">Copy your data and keep it somewhere safe.</p><button class="pri" style="margin-top:10px;padding:12px" data-a="backup">Copy backup</button><button class="pri" style="margin-top:8px;padding:12px;background:#dcf1e6;color:#0a3d2b" data-a="cloud">☁ Cloud backup and sync</button><button class="pri" style="margin-top:8px;padding:12px;background:#dcf1e6;color:#0a3d2b" data-a="restore">Restore from backup text</button></div>`}
@@ -312,7 +328,7 @@ function daily(){const n=dmBase(),k=n.getFullYear()+'-'+String(n.getMonth()+1).p
  ${tot>0?`<div class="dch">${bars}<div class="avl" style="bottom:${avg/mx*100}px"></div></div><div class="dax"><span>1</span><span>8</span><span>15</span><span>22</span><span>${ld}</span></div>
  <p id="dr" class="mut" style="margin:10px 0 0">Highest day: <b style="color:var(--ink)">${lab(bi+1)} · ${f(v[bi])}</b> · Daily average ${f(avg)}. Tap a bar for any day.</p>
  <div>${top.map(x=>`<span class="tp">${lab(x[1])} · ${f(x[0])}</span>`).join('')}</div><p class="mut" style="margin:8px 0 0;font-size:12px"><span style="color:#e11d48">■</span> highest &nbsp;<span style="color:#f59e0b">■</span> well above average &nbsp;<span>┅</span> average</p>`:'<div class="empty">No spending recorded in this month.</div>'}</div>`}
-function loadP(){const p=curP();KEY=p.key;S=null;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}if(!S||!S.txs)S=blank();persist();dirty=true;cm=null;prev=null;dmo=0;tab='home';lt=null;$('#toast').hidden=true}
+function loadP(){const p=curP();KEY=p.key;S=null;try{S=clean(JSON.parse(localStorage.getItem(KEY)))}catch(e){}if(!S)S=blank();persist();dirty=true;cm=null;prev=null;dmo=0;tab='home';lt=null;$('#toast').hidden=true}
 const hs=(pin,salt)=>{const t=salt+pin+salt;let a=0xdeadbeef,b=0x41c6ce57;for(let i=0;i<t.length;i++){const c=t.charCodeAt(i);a=Math.imul(a^c,2654435761);b=Math.imul(b^c,1597334677)}a=Math.imul(a^(a>>>16),2246822507)^Math.imul(b^(b>>>13),3266489909);b=Math.imul(b^(b>>>16),2246822507)^Math.imul(a^(a>>>13),3266489909);return(4294967296*(2097151&b)+(a>>>0)).toString(36)};
 let kp={mode:'',buf:'',msg:''},fl={},until={},hAt=0,ad=null,nu=null;
 const getSess=()=>{try{return localStorage.getItem('spendy.session')}catch(e){return null}};
@@ -334,17 +350,21 @@ function kpRender(){const m=kp.mode,T={unlock:'Enter your PIN',admin:'Enter admi
   l.innerHTML=`<div class="lw">${who}${h}${ex}</div>`}
  else sheet(`<h3>${m==='rem'?'Remove PIN':'PIN lock'}</h3>${h}<button class="del" style="color:var(--ink)" data-a="close">Cancel</button>`)}
 const kpDots=()=>document.querySelectorAll('.kdot').forEach((e,i)=>e.classList.toggle('on',i<kp.buf.length));
-const mkpin=b=>{const sl=Math.random().toString(36).slice(2,8);return{s:sl,h:hs(b,sl)}};
-function kpDone(){const m=kp.mode,p=PF.list.find(x=>x.id===kp.id),b=kp.buf;if(!p&&m!=='cset1'&&m!=='cset2')return;
- const bad=msg=>{kp.buf='';kp.msg=msg;kpRender();const d=document.querySelector('.kd');if(d)d.classList.add('shake')};
- const good=()=>p&&p.pin&&hs(b,p.pin.s)===p.pin.h;
- if(m==='unlock'||m==='admin'){const now=Date.now();if((until[p.id]||0)>now)return bad('Too many tries. Wait a little.');if(good()){fl[p.id]=0;m==='admin'?adminPanel():enter(p.id)}else{fl[p.id]=(fl[p.id]||0)+1;if(fl[p.id]>=5){until[p.id]=now+30000;fl[p.id]=0;bad('Too many tries. Wait 30 seconds.')}else bad('Wrong PIN')}}
- else if(m==='rem'){if(good()){delete p.pin;savePF();A.close();ok('PIN removed')}else bad('Wrong PIN')}
- else if(m==='chg0'){if(good()){kp={mode:'set1',id:p.id,buf:'',msg:''};kpRender()}else bad('Wrong PIN')}
+const rs=()=>[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
+async function hp(pin,salt){if(!(crypto&&crypto.subtle))return hs(pin,salt);const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']),b=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:new TextEncoder().encode(salt),iterations:150000},k,256);return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+const mkpin=async b=>{const sl=rs();return{s:sl,h:await hp(b,sl),v:2}};
+async function chkPin(p,pin){const k=p.pin;if(!k)return false;if(k.v===2)return await hp(pin,k.s)===k.h;if(hs(pin,k.s)!==k.h)return false;p.pin=await mkpin(pin);savePF();return true}
+const LKS=()=>{try{return JSON.parse(localStorage.getItem('spendy.lk'))||{}}catch(e){return{}}},sLK=o=>{try{localStorage.setItem('spendy.lk',JSON.stringify(o))}catch(e){}};
+async function kpDone(){if(kp.busy)return;kp.busy=1;const m=kp.mode,p=PF.list.find(x=>x.id===kp.id),b=kp.buf;if(!p&&m!=='cset1'&&m!=='cset2')return;
+ const bad=msg=>{kp.busy=0;kp.buf='';kp.msg=msg;kpRender();const d=document.querySelector('.kd');if(d)d.classList.add('shake')};
+ const good=()=>chkPin(p,b);
+ if(m==='unlock'||m==='admin'){const now=Date.now(),o=LKS(),e=o[p.id]||{n:0,k:0,u:0};if(e.u>now)return bad('Too many tries. Try again in '+Math.ceil((e.u-now)/1000)+' seconds.');if(await good()){delete o[p.id];sLK(o);m==='admin'?adminPanel():enter(p.id)}else{e.n++;if(e.n>=5){e.k++;e.u=now+Math.min(3600e3,30e3*2**(e.k-1));e.n=0;o[p.id]=e;sLK(o);bad('Too many tries. Wait '+Math.ceil((e.u-now)/1000)+' seconds.')}else{o[p.id]=e;sLK(o);bad('Wrong PIN. '+(5-e.n)+' tries left.')}}}
+ else if(m==='rem'){if(await good()){delete p.pin;savePF();A.close();ok('PIN removed')}else bad('Wrong PIN')}
+ else if(m==='chg0'){if(await good()){kp={mode:'set1',id:p.id,buf:'',msg:''};kpRender()}else bad('Wrong PIN')}
  else if(m==='set1'||m==='cset1'||m==='aset1'){kp={mode:m.slice(0,-1)+'2',id:kp.id,buf:'',msg:'',first:b};kpRender()}
- else if(m==='set2'){if(b===kp.first){p.pin=mkpin(b);savePF();A.close();ok('PIN set')}else{kp={mode:'set1',id:p.id,buf:'',msg:'PINs did not match. Try again.'};kpRender()}}
- else if(m==='aset2'){if(b===kp.first){p.pin=mkpin(b);savePF();adminPanel('PIN updated for '+p.name)}else{kp={mode:'aset1',id:p.id,buf:'',msg:'PINs did not match. Try again.'};kpRender()}}
- else if(m==='cset2'){if(b===kp.first){const id=uid(),key='spendy.p.'+id,d=blank();d.open.avail=nu.bal;d.salary=nu.sal;try{localStorage.setItem(key,JSON.stringify(d))}catch(e){}PF.list.push({id,name:nu.name,key,pin:mkpin(b)});savePF();const n=nu.name;nu=null;enter(id);ok('Welcome, '+n)}else{kp={mode:'cset1',buf:'',msg:'PINs did not match. Try again.'};kpRender()}}}
+ else if(m==='set2'){if(b===kp.first){p.pin=await mkpin(b);savePF();A.close();ok('PIN set')}else{kp={mode:'set1',id:p.id,buf:'',msg:'PINs did not match. Try again.'};kpRender()}}
+ else if(m==='aset2'){if(b===kp.first){p.pin=await mkpin(b);savePF();adminPanel('PIN updated for '+p.name)}else{kp={mode:'aset1',id:p.id,buf:'',msg:'PINs did not match. Try again.'};kpRender()}}
+ else if(m==='cset2'){if(b===kp.first){const id=uid(),key='spendy.p.'+id,d=blank();d.open.avail=nu.bal;d.salary=nu.sal;try{localStorage.setItem(key,JSON.stringify(d))}catch(e){}PF.list.push({id,name:nu.name,key,pin:await mkpin(b)});savePF();const n=nu.name;nu=null;enter(id);ok('Welcome, '+n)}else{kp={mode:'cset1',buf:'',msg:'PINs did not match. Try again.'};kpRender()}}}
 const SB_URL='https://dqqclrnfzrquybryhncw.supabase.co',SB_KEY='sb_publishable_p2cZTgmY_ghjcEAYrj4Dog_O9AdEn1N';
 const CFG=()=>{if(SB_URL&&SB_KEY)return{u:SB_URL,k:SB_KEY};try{const c=JSON.parse(localStorage.getItem('spendy.cfg'));return c&&c.u&&c.k?c:null}catch(e){return null}};
 const cErr=x=>x instanceof TypeError?'Could not reach the cloud. Check your internet connection.':(x&&x.message)||'Something went wrong.';
@@ -356,15 +376,15 @@ const pull=async p=>{const a=await sbRest(p,'GET','?profile_id=eq.'+encodeURICom
 const push=p=>sbRest(p,'POST','?on_conflict=user_id,profile_id',{user_id:p.cloud.uid,profile_id:p.cid,data:Object.assign({},S,{_name:p.name}),updated_at:new Date().toISOString()},'resolution=merge-duplicates,return=minimal');
 let syncT=0;
 function schedPush(){const p=curP();if(!p.cloud||!p.cid||!CFG())return;clearTimeout(syncT);syncT=setTimeout(()=>push(p).then(()=>{p.cloud.last=Date.now();savePF()}).catch(()=>{}),1500)}
-async function syncOpen(){const p=curP();if(!p.cloud||!p.cid||!CFG())return;try{const row=await pull(p),rts=row&&row.data&&row.data._ts||0,lts=S._ts||0;if(row&&rts>lts){keepBak();S=Object.assign({},row.data);delete S._name;persist();dirty=true;cm=null;render()}else if(!row||lts>rts)await push(p);p.cloud.last=Date.now();savePF()}catch(e){}}
+async function syncOpen(){const p=curP();if(!p.cloud||!p.cid||!CFG())return;try{const row=await pull(p),rts=row&&row.data&&row.data._ts||0,lts=S._ts||0;if(row&&rts>lts&&clean(Object.assign({},row.data))){keepBak();S=clean(Object.assign({},row.data));persist();dirty=true;cm=null;render()}else if(!row||lts>rts)await push(p);p.cloud.last=Date.now();savePF()}catch(e){}}
 const keepBak=()=>{try{localStorage.setItem('spendy.bak.'+KEY,JSON.stringify(S))}catch(e){}};
-const useRemote=d=>{keepBak();d=Object.assign({},d);delete d._name;S=d;persist();dirty=true;cm=null;render()};
+const useRemote=d=>{keepBak();d=clean(Object.assign({},d));if(!d)return;S=d;persist();dirty=true;cm=null;render()};
 function cloudSheet(msg){const p=curP(),c=CFG();let h='<h3>☁ Cloud backup</h3>';
  if(!c)h+='<p class="mut" style="margin:0">Paste your Supabase project details. People you share Spendy with use the same two values.</p><input id="cu" placeholder="Project URL, https://xxxx.supabase.co" aria-label="Project URL" autocapitalize="off"><input id="ck" placeholder="Anon public key" aria-label="Anon key" autocapitalize="off"><button class="pri" data-a="csave">Save</button>';
- else if(!p.cloud)h+='<p class="mut" style="margin:0">Your data is saved in your own account, so it survives deleting the app or changing phones.</p><input id="ce" type="email" placeholder="Email" aria-label="Email" autocomplete="email" autocapitalize="off"><input id="cp" type="password" placeholder="Password, at least 6 characters" aria-label="Password" autocomplete="current-password"><button class="pri" data-a="cin">Sign in</button><button class="del" style="color:var(--blue)" data-a="cup">Create account</button>';
+ else if(!p.cloud)h+='<p class="mut" style="margin:0">Your data is saved in your own account, so it survives deleting the app or changing phones.</p><input id="ce" type="email" placeholder="Email" aria-label="Email" autocomplete="email" autocapitalize="off"><input id="cp" type="password" placeholder="Password, at least 8 characters" minlength="8" aria-label="Password" autocomplete="current-password"><button class="pri" data-a="cin">Sign in</button><button class="del" style="color:var(--blue)" data-a="cup">Create account</button>';
  else h+=`<p style="margin:0">Connected as <b>${esc(p.cloud.email)}</b></p><p class="mut">${p.cloud.last?'Last synced '+new Date(p.cloud.last).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'Not synced yet'}</p><button class="pri" data-a="csync">Sync now</button><button class="del" style="color:var(--blue)" data-a="crest">Restore from cloud</button><button class="del" data-a="cout">Sign out of cloud</button>${localStorage.getItem('spendy.bak.'+KEY)?'<button class="del" style="color:var(--ink)" data-a="cbak">Undo last overwrite</button>':''}`;
  if(msg)h+=`<p class="mut" id="cmsg" role="status" style="margin:10px 0 0;color:var(--ink)">${esc(msg)}</p>`;sheet(h)}
-async function cLogin(up){const e=val('ce'),pw=val('cp');if(!e||pw.length<6)return cloudSheet('Enter your email and a password of at least 6 characters.');cloudSheet('Working…');
+async function cLogin(up){const e=val('ce'),pw=val('cp');if(!e||pw.length<8)return cloudSheet('Enter your email and a password of at least 8 characters.');cloudSheet('Working…');
  try{const j=up?await sbAuth('signup',{email:e,password:pw}):await sbAuth('token?grant_type=password',{email:e,password:pw});
   if(!j.access_token)return cloudSheet('Account created. Check your email to confirm it, then sign in.');
   curP().cloud={email:j.user.email,uid:j.user.id,access:j.access_token,refresh:j.refresh_token,exp:Date.now()+(j.expires_in||3600)*1000};savePF();await afterAuth()}catch(x){cloudSheet(cErr(x))}}
@@ -378,6 +398,21 @@ async function afterAuth(){const p=curP();try{
  cRows=all.filter(x=>!PF.list.some(q=>q.id!==p.id&&q.cid===x.profile_id));
  if(!cRows.length){p.cid=uid();S._ts=S._ts||Date.now();persist();await push(p);return cDone(p,'Connected. This profile now has its own cloud backup.')}
  sheet(`<h3>Restore or start a new backup?</h3><p style="margin:0 0 6px">This account already has saved profiles. Pick one to load into <b>${esc(p.name)}</b> (this replaces its data on this phone), or start a separate backup.</p>${cRows.map((x,i)=>`<button class="row" data-a="cadopt:${i}"><div class="em">☁</div><div class="t"><b>${esc((x.data&&x.data._name)||'Older backup')}</b><small>Updated ${new Date(x.updated_at).toLocaleDateString()}</small></div></button>`).join('')}<button class="pri" data-a="cnew">Start a new backup for ${esc(p.name)}</button><button class="del" style="color:var(--ink)" data-a="cout">Cancel</button>`)}catch(x){cloudSheet(cErr(x))}}
+const KW={Food:'lunch dinner breakfast food tea coffee chai snack swiggy zomato biryani restaurant juice',Travel:'uber ola bus auto taxi petrol fuel train metro cab flight',Shopping:'shopping clothes amazon flipkart shoes shirt',Bills:'bill recharge rent internet wifi emi',Entertainment:'movie netflix game spotify',Health:'medicine doctor pharmacy hospital gym',Family:'mom dad family gift'};
+function guess(t){const w=t.toLowerCase().split(/\W+/);for(const[k,v]of Object.entries(KW))if(S.cats.some(c=>c[0]===k)&&v.split(' ').some(x=>w.includes(x)))return k;return S.cats.some(c=>c[0]==='Other')?'Other':S.cats[S.cats.length-1][0]}
+const AQ=['How much can I spend today?','Why is my Safe to spend low?','What bills are coming?','How much did I spend this month?','How much did I save?'];
+function ans(q){const c=C(),l=q.toLowerCase(),L=Math.max(0,c.raw+c.tsp)/c.days,amt=parseFloat(((q.match(/\d[\d,]*(?:\.\d+)?/)||[''])[0]).replace(/,/g,''))||0,mo=CM(),cu=mo[mk()]||E(),pv=mo[prevMk()]||E(),cat=S.cats.find(x=>l.includes(x[0].toLowerCase()));
+ if(/afford|can i (buy|spend)|what if/.test(l)&&amt>0){const a=c.raw-amt;return a>=0?`Yes. Safe to spend is ${f(c.safe)} now. After ${f(amt)} it would be <b>${f(a)}</b>, about ${f(a/c.days)}/day for ${c.days} days.`:`That is ${f(-a)} more than your Safe to spend (${f(c.safe)}), so it would eat into money set aside for bills.`}
+ if(/today|limit|daily|can i spend/.test(l))return `Today's limit is ${f(L)} and you have spent ${f(c.tsp)}. You can spend about <b>${f(Math.max(0,L-c.tsp))}</b> more today.`;
+ if(/why|low|safe/.test(l))return `Safe to spend = Available ${f(c.avail)} − Upcoming bills ${f(c.up)} = <b>${f(c.safe)}</b>.`+(c.raw<0?' Your bills are bigger than your balance.':c.up>c.avail/2?' Bills are holding back over half of your money.':'');
+ if(/bill|due|upcoming/.test(l))return c.upL.length?`${c.upL.length} bills left, ${f(c.up)} in total:<br>`+c.upL.map(b=>`• ${esc(b.name)} ${f(b.amt)} (day ${b.day})`).join('<br>'):'All bills are paid this month.';
+ if(/sav/.test(l))return `You saved <b>${f(c.sv)}</b> this month. Your savings balance is ${f(c.sav)}.`;
+ if(/income|earn|salary/.test(l))return `Income this month: <b>${f(c.inc)}</b>.`;
+ if(cat&&/spen|how much/.test(l)){const a=cu.cat[cat[0]]||0,b=pv.cat[cat[0]]||0,p=pct(a,b);return `${cat[1]} You spent <b>${f(a)}</b> on ${esc(cat[0])} this month`+(p===null?'':` (${f(b)} last month, ${p>=0?'up':'down'} ${Math.abs(p)}%)`)+'.'}
+ if(/spen|expens/.test(l)){const t=Object.entries(cu.cat).sort((a,b)=>b[1]-a[1])[0];return `You spent <b>${f(c.sp)}</b> this month`+(t?`. Most went to ${esc(t[0])} (${f(t[1])}).`:'.')}
+ return 'Try: "Can I afford 2000?", "How much on Food?", "What bills are coming?" or tap a question above.'}
+function bud(c){const e=Object.entries(S.budgets||{});return `<div class="hd"><b>Budgets</b><button class="btn" data-a="bset:">Set</button></div><div class="card">${e.length?e.map(x=>{const k=x[0],v=x[1],sp=c.cat[k]||0,r=sp/v,col=r>1?'#e11d48':r>=.8?'#f59e0b':'#34b27b';return `<button class="row" data-a="bset:${S.cats.findIndex(y=>y[0]===k)}"><div class="em">${catE(k)}</div><div class="t"><b>${esc(k)}</b><small>${f(sp)} of ${f(v)}</small><div class="bar"><i style="width:${Math.min(100,r*100)}%;background:${col}"></i></div></div><div class="a" style="color:${col}">${Math.round(r*100)}%</div></button>`}).join(''):'<div class="empty">Set a monthly limit for a category, like Food.</div>'}</div>`}
+function bkn(){const p=curP();if(S.txs.length<5||(p.cloud&&p.cid)||Date.now()-(S.lastBackup||0)<30*864e5||Date.now()<(S.bnz||0))return '';return `<div class="card" style="display:flex;gap:10px;align-items:center"><div style="font-size:28px">🔔</div><div style="flex:1"><b>Time for a backup</b><div class="mut" style="margin:2px 0 0;font-size:13px">Copy your data and keep it safe.</div></div><button class="btn" data-a="backup">Copy</button><button class="btn o" data-a="bnz">Later</button></div>`}
 function render(){chg=lt!==tab;lt=tab;nav();let h={home,act,sav,cmp,plan,tog}[tab]();if(tab!=='home')h=h.replace(/<h1>(.*?)<\/h1><p class="mut">(.*?)<\/p>/,'<div class="gh sm"><h1>$1</h1><p>$2</p></div>');const ap=$('#app');ap.className=chg?'anim':'';ap.innerHTML=(ad?`<div class="adb"><span>🛠 Admin mode · editing <b>${esc(curP().name)}</b></span><button data-a="adx">Exit</button></div>`:'')+h;if(chg)window.scrollTo(0,0)}
 function sheet(h){$('#sh').innerHTML='<div class="bk" data-a="close"></div><div class="pn">'+h+'</div>';$('#sh').hidden=false;const i=$('#sh input');if(i)setTimeout(()=>i.focus(),50)}
 const val=id=>{const e=$('#'+id);return e?e.value.trim():''};
@@ -422,12 +457,12 @@ const A={
  saveptx(id){const a=parseFloat(val('pa'));if(!(a>0))return;const o={k:val('pk'),amt:a,note:val('pn')};mutate(()=>{if(id)Object.assign(S.partner.find(x=>x.id===id),o);else S.partner.push({id:uid(),date:today(),...o})},'Saved');A.close()},
  delptx(id){mutate(()=>{S.partner=S.partner.filter(x=>x.id!==id)},'Deleted');A.close()},
  bcheck(){const a=parseFloat(val('bc'));if(isNaN(a))return;const d=a-C().avail;if(Math.abs(d)<.5)return toast('Balance already matches');mutate(()=>S.txs.push({id:uid(),type:'adj',amt:d,cat:'',date:today(),note:'Balance check adjustment'}),'Adjusted by '+f(d))},
- backup(){const s=JSON.stringify(S);try{navigator.clipboard.writeText(s).then(()=>toast('Backup copied'),()=>prompt('Copy your backup',s))}catch(e){prompt('Copy your backup',s)}},
+ backup(){S.lastBackup=Date.now();persist();dirty=true;render();const s=JSON.stringify(S);try{navigator.clipboard.writeText(s).then(()=>toast('Backup copied'),()=>prompt('Copy your backup',s))}catch(e){prompt('Copy your backup',s)}},
  dm(n){dmo=Math.min(0,dmo+ +n);render()},
  dday(d,v){const e=$('#dr'),n=dmBase();if(e)e.innerHTML='<b style="color:var(--ink)">'+new Date(n.getFullYear(),n.getMonth(),+d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})+' · '+f(+v)+'</b>'},
  welcome(){sheet(`<h3>Welcome 👋</h3><p class="mut" style="margin:0 0 4px">You will be the admin. Just a few quick things, and you can change them later.</p><input id="wn" placeholder="Your name" maxlength="20" aria-label="Your name"><input id="wb" inputmode="decimal" placeholder="Money in your account now (₹)" aria-label="Current balance"><input id="ws" inputmode="decimal" placeholder="Monthly salary (optional)" aria-label="Monthly salary"><button class="pri" data-a="wstart">Start</button>`)},
  wstart(){const n=val('wn')||'Me',b=parseFloat(val('wb'))||0,sa=parseFloat(val('ws'))||0;curP().name=n;S.open.avail=b;S.salary=sa;fresh=false;savePF();persist();setSess(PF.cur);dirty=true;A.close();render();ok('All set, '+n);setTimeout(()=>A.pin('set'),1500)},
- kd(d){if(kp.buf.length>=4)return;kp.buf+=d;kpDots();if(kp.buf.length===4)setTimeout(kpDone,140)},
+ kd(d){if(kp.buf.length>=4||kp.busy)return;kp.buf+=d;kpDots();if(kp.buf.length===4)setTimeout(kpDone,140)},
  kb(){kp.buf=kp.buf.slice(0,-1);kpDots()},
  pick(id){const p=PF.list.find(x=>x.id===id);if(p.pin){kp={mode:'unlock',id,buf:'',msg:''};kpRender()}else enter(id)},
  lkback(){picker()},lkcancel(){$('#lk').hidden=true;$('#lk').innerHTML=''},lock(){setSess(null);picker()},
@@ -445,7 +480,14 @@ const A={
  reset(id){const p=PF.list.find(x=>x.id===id);try{localStorage.removeItem(p.key)}catch(e){}delete p.pin;enter(id)},
  cbak(){try{const d=JSON.parse(localStorage.getItem('spendy.bak.'+KEY));if(!d||!d.txs)throw 0;S=d;S._ts=Date.now();persist();dirty=true;cm=null;render();schedPush();cloudSheet('Your previous data on this phone is back.')}catch(e){cloudSheet('Nothing to undo.')}},
  restore(){sheet('<h3>Restore from backup</h3><p class="mut" style="margin:0">Paste the text you copied with Copy backup. It replaces this user\u2019s data on this phone.</p><textarea id="rb" rows="5" placeholder="Paste backup here" aria-label="Backup text"></textarea><button class="pri" data-a="restorego">Restore</button><button class="del" style="color:var(--ink)" data-a="close">Cancel</button>')},
- restorego(){try{const d=JSON.parse(val('rb'));if(!Array.isArray(d.txs)||!d.open)throw 0;keepBak();S=d;S._ts=Date.now();persist();dirty=true;cm=null;A.close();render();schedPush();ok('Backup restored')}catch(e){const m=$('#rb');if(m){m.value='';m.placeholder='That does not look like a Spendy backup.'}}},
+ restorego(){try{const d=clean(JSON.parse(val('rb')));if(!d)throw 0;keepBak();S=d;S._ts=Date.now();persist();dirty=true;cm=null;A.close();render();schedPush();ok('Backup restored')}catch(e){const m=$('#rb');if(m){m.value='';m.placeholder='That does not look like a Spendy backup.'}}},
+ ask(){sheet(`<h3>🐷 Ask Spendy</h3><div id="aa" class="ans" role="status">Ask about your money. I answer from your own numbers.</div><div class="chips" style="margin:10px 0">${AQ.map((q,i)=>`<button class="cb" data-a="aq:${i}">${q}</button>`).join('')}</div><input id="ask" placeholder="e.g. Can I afford 2000?" enterkeyhint="send" aria-label="Question"><button class="pri" data-a="askgo">Ask</button>`)},
+ aq(i){$('#aa').innerHTML=ans(AQ[+i])},askgo(){const q=val('ask');if(q)$('#aa').innerHTML=ans(q)},
+ qadd(){const t=val('qa'),m=t.match(/\d+(?:\.\d+)?/g);if(!m)return $('#qa').focus();const amt=parseFloat(m[m.length-1]);if(!(amt>0))return;const nt=t.replace(/[₹]?\d+(?:\.\d+)?/g,'').replace(/\s+/g,' ').trim();mutate(()=>S.txs.push({id:uid(),type:'expense',amt,cat:guess(t),date:today(),note:nt?nt[0].toUpperCase()+nt.slice(1):''}),'Added '+f(amt));ok('Expense added')},
+ bset(i){const k=i!==''?S.cats[+i][0]:'',v=k?(S.budgets||{})[k]||'':'';sheet(`<h3>Monthly budget</h3><select id="bcat" aria-label="Category">${S.cats.map(c=>`<option ${c[0]===k?'selected':''}>${esc(c[0])}</option>`).join('')}</select><input id="bam" inputmode="decimal" placeholder="Budget for the month (₹)" value="${v}" aria-label="Budget amount"><button class="pri" data-a="bsave">Save</button><button class="del" data-a="bdel">Remove this budget</button>`)},
+ bsave(){const k=val('bcat'),a=parseFloat(val('bam'));if(!(a>0))return $('#bam').focus();mutate(()=>{S.budgets=S.budgets||{};S.budgets[k]=a},'Budget saved');A.close()},
+ bdel(){const k=val('bcat');mutate(()=>{if(S.budgets)delete S.budgets[k]},'Budget removed');A.close()},
+ more(){alim+=60;$('#alist').innerHTML=actRows()},bnz(){S.bnz=Date.now()+7*864e5;persist();render()},
  cloud(){cloudSheet()},
  csave(){const u=val('cu'),k=val('ck');if(!/^https:\/\//.test(u)||k.length<20)return cloudSheet('Enter the full https:// project URL and the anon key.');try{localStorage.setItem('spendy.cfg',JSON.stringify({u,k}))}catch(e){}cloudSheet('Saved. Now sign in or create your account.')},
  cin(){cLogin(0)},cup(){cLogin(1)},
@@ -467,7 +509,9 @@ const A={
  undo(){if(!prev)return;S=JSON.parse(prev);prev=null;S._ts=Date.now();persist();schedPush();dirty=true;cm=null;$('#toast').hidden=true;render()}
 };
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el)return;const p=el.dataset.a.split(':');const fn=A[p[0]];if(fn)fn(...p.slice(1))});
-document.addEventListener('input',e=>{if(e.target.id!=='pc')return;const c=C(),x=parseFloat(e.target.value)||0,r=$('#pcr');
+document.addEventListener('change',e=>{if(e.target.id==='af'){afc=e.target.value;alim=60;$('#alist').innerHTML=actRows()}});
+document.addEventListener('keydown',e=>{if(e.key!=='Enter')return;if(e.target.id==='qa'){e.preventDefault();A.qadd()}if(e.target.id==='ask'){e.preventDefault();A.askgo()}});
+document.addEventListener('input',e=>{if(e.target.id==='as'){aqs=e.target.value;alim=60;$('#alist').innerHTML=actRows();return}if(e.target.id!=='pc')return;const c=C(),x=parseFloat(e.target.value)||0,r=$('#pcr');
  r.innerHTML=x>0?`Now ${f(c.safe)} → after purchase <b>${f(Math.max(0,c.raw-x))}</b> (${f(Math.max(0,c.raw-x)/c.days)}/day)${c.raw-x<0?'<br>This goes past what is safe by '+f(x-c.raw):''}`:'Safe to spend now: '+f(c.safe)});
 (function(){let seen=null;try{seen=localStorage.getItem('spendy.seen')}catch(e){}
 const o=document.getElementById('spl');if(!o)return;let done=false;
